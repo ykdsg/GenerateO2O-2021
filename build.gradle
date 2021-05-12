@@ -1,0 +1,37 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.intellij' version '0.7.3'
+}
+
+group 'com.hz.yk'
+version '2.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+//    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
+//    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+// See https://github.com/JetBrains/gradle-intellij-plugin/
+intellij {
+    plugins = ['com.intellij.java']
+    version '2020.1.1'
+    sandboxDirectory = "$project.buildDir/myCustom-sandbox"
+}
+patchPluginXml {
+    //最低支持的版本
+    sinceBuild '201'
+    //最高支持的版本，不能不设置，不设置是默认为 project.version
+    untilBuild ''
+    changeNotes """
+      2.0版本.<br>
+      针对2020版本的更新，主要修复了2020版本及更高版本报explicitly marked as incompatible的问题.<br>
+      使用了新的gradle来创建插件.<br>
+      """
+}
+test {
+    useJUnitPlatform()
+}

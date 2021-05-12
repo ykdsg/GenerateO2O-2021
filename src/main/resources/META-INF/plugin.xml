@@ -1,0 +1,26 @@
+<idea-plugin>
+    <id>com.taobao.wuzheng</id>
+    <name>GenerateO2O</name>
+    <vendor email="17173as@163.com" url="">hipac</vendor>
+
+    <description><![CDATA[
+    This plugin can generate an Object to another Object transfer methods.  <br>
+    ]]></description>
+
+    <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
+         on how to target different products -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+    </extensions>
+
+    <idea-version since-build="201"/>
+    <actions>
+        <!-- Add your actions here -->
+        <action id="generateO2O" class="com.hz.yk.GenerateAction" text="GenerateO2O" description="auto gnenerates O2O">
+            <add-to-group group-id="GenerateGroup" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

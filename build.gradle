@@ -18,11 +18,15 @@ dependencies {
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 intellij {
     plugins = ['com.intellij.java']
+    // 这里是指打插件包的时候用idea什么版本的依赖包打
+    // 比如这里用2019.3 打包 ， 如果你的插件实现源码里用了2019.3 不存在的依赖包或类 ， 就会报错
+    // 一般就填当前IDEA的版本号即可
     version '2020.1.1'
     sandboxDirectory = "$project.buildDir/myCustom-sandbox"
 }
 patchPluginXml {
     //最低支持的版本
+    //版本参考：https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html?from=jetbrains.org#intellij-platform-based-products-of-recent-ide-versions
     sinceBuild '201'
     //最高支持的版本，不能不设置，不设置是默认为 project.version
     untilBuild ''

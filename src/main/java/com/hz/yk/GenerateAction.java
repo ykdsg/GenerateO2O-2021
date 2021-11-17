@@ -34,7 +34,7 @@ public class GenerateAction extends AnAction {
         PsiMethod psiMethod = getPsiMethodFromContext(event);
         generateO2OMethod(psiMethod);
     }
-    
+
     /**
      * 启动写线程
      *
@@ -58,10 +58,15 @@ public class GenerateAction extends AnAction {
         String parameterClassWithPackage = psiParameter.getType().getInternalCanonicalText();
         //为了解析字段，这里需要加载参数的class
         JavaPsiFacade facade = JavaPsiFacade.getInstance(psiMethod.getProject());
-        PsiClass paramentClass = facade
-                .findClass(parameterClassWithPackage, GlobalSearchScope.allScope(psiMethod.getProject()));
+        PsiClass paramentClass = facade.findClass(parameterClassWithPackage, GlobalSearchScope.allScope(psiMethod.getProject()));
         if (paramentClass == null) {
-            return;
+            if (parameterClassWithPackage.contains("java.util.List")) {
+                parameterClassWithPackage = parameterClassWithPackage.split("<")[1].replace(">", "");
+                paramentClass = facade.findClass(parameterClassWithPackage, GlobalSearchScope.allScope(psiMethod.getProject()));
+            }
+            if (paramentClass == null) {
+                return;
+            }
         }
         List<PsiField> paramentFields = new CollectionListModel<PsiField>(paramentClass.getFields()).getItems();
         String methodText = getMethodText(methodName, returnClassName, psiParameter, paramentFields);
@@ -77,24 +82,58 @@ public class GenerateAction extends AnAction {
      * @param paramentFields  方法参数的class里field 列表
      * @return 方法体的字符串
      */
-    private String getMethodText(String methodName, String returnClassName, PsiParameter psiParameter,
-                                 List<PsiField> paramentFields) {
+    private String getMethodText(String methodName, String returnClassName, PsiParameter psiParameter, List<PsiField> paramentFields) {
+
         String returnObjName = returnClassName.substring(0, 1).toLowerCase() + returnClassName.substring(1);
         String parameterClass = psiParameter.getText();
         String parameterName = psiParameter.getName();
+        //如果是集合
+        if (returnClassName.contains("List")) {
+            return getListConvertMethod(methodName, returnClassName, paramentFields, returnObjName, parameterClass, parameterName);
+        }
+        return getSingleConvertMethod(methodName, returnClassName, paramentFields, returnObjName, parameterClass, parameterName);
+    }
+
+    private String getListConvertMethod(String methodName, String returnClassName, List<PsiField> paramentFields, String returnObjName, String parameterClass, String parameterName) {
+        String singleReturnObjName = returnObjName.replace("list<", "").replace(">", "");
+        String singleParameterName = parameterName.replace("List", "");
+        StringBuilder builder = new StringBuilder("public static " + returnClassName + " " + methodName + " (");
+        builder.append(parameterClass + " ) {\n");
+        builder.append("if ( " + parameterName + "== null ){\n").append("return Collections.emptyList();\n}")
+                .append(returnClassName + " " + getFirstLowerCase(singleReturnObjName) + "List = new ArrayList<>();\n");
+        builder.append(parameterName).append(".forEach(").append(parameterName.replace("List", "")).append("->{\n");
+        builder.append(singleReturnObjName + " " + getFirstLowerCase(singleReturnObjName) + " = new " + singleReturnObjName + "();\n");
+        for (PsiField field : paramentFields) {
+            PsiModifierList modifierList = field.getModifierList();
+            if (modifierList == null || modifierList.hasModifierProperty(PsiModifier.STATIC) || modifierList.hasModifierProperty(PsiModifier.FINAL)
+                    || modifierList.hasModifierProperty(PsiModifier.SYNCHRONIZED)) {
+                continue;
+            }
+            builder.append(getFirstLowerCase(singleReturnObjName) + ".set" + getFirstUpperCase(field.getName()) + "(" + singleParameterName + ".get"
+                    + getFirstUpperCase(field.getName()) + "());\n");
+
+        }
+        builder.append(getFirstLowerCase(singleReturnObjName) + "List.add(" + getFirstLowerCase(singleReturnObjName) + ");\n");
+        builder.append("});\n");
+        builder.append("return " + getFirstLowerCase(singleReturnObjName) + "List;\n");
+        builder.append("}\n");
+        return builder.toString();
+    }
+
+    private String getSingleConvertMethod(String methodName, String returnClassName, List<PsiField> paramentFields, String returnObjName, String parameterClass, String parameterName) {
         StringBuilder builder = new StringBuilder("public static " + returnClassName + " " + methodName + " (");
         builder.append(parameterClass + " ) {\n");
         builder.append("if ( " + parameterName + "== null ){\n").append("return null;\n}")
                 .append(returnClassName + " " + returnObjName + "= new " + returnClassName + "();\n");
         for (PsiField field : paramentFields) {
             PsiModifierList modifierList = field.getModifierList();
-            if (modifierList == null || modifierList.hasModifierProperty(PsiModifier.STATIC) || modifierList
-                    .hasModifierProperty(PsiModifier.FINAL) || modifierList
-                        .hasModifierProperty(PsiModifier.SYNCHRONIZED)) {
+            if (modifierList == null || modifierList.hasModifierProperty(PsiModifier.STATIC) || modifierList.hasModifierProperty(PsiModifier.FINAL)
+                    || modifierList.hasModifierProperty(PsiModifier.SYNCHRONIZED)) {
                 continue;
             }
-            builder.append(returnObjName + ".set" + getFirstUpperCase(field.getName()) + "(" + parameterName + ".get"
-                           + getFirstUpperCase(field.getName()) + "());\n");
+            builder.append(
+                    returnObjName + ".set" + getFirstUpperCase(field.getName()) + "(" + parameterName + ".get" + getFirstUpperCase(field.getName())
+                            + "());\n");
         }
         builder.append("return " + returnObjName + ";\n");
         builder.append("}\n");
@@ -103,6 +142,10 @@ public class GenerateAction extends AnAction {
 
     private String getFirstUpperCase(String oldStr) {
         return oldStr.substring(0, 1).toUpperCase() + oldStr.substring(1);
+    }
+
+    private String getFirstLowerCase(String oldStr) {
+        return oldStr.substring(0, 1).toLowerCase() + oldStr.substring(1);
     }
 
     private PsiMethod getPsiMethodFromContext(AnActionEvent e) {

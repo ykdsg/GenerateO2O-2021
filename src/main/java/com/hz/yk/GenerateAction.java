@@ -8,6 +8,7 @@ import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiCodeBlock;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementFactory;
 import com.intellij.psi.PsiField;
@@ -31,10 +32,11 @@ public class GenerateAction extends AnAction {
 
     @Override
     public void actionPerformed(AnActionEvent event) {
+        //这里的思路是替换整个psiMethod，方法的声明是写死的。可能存在坑点，更好的是利用 PsiCodeBlock
         PsiMethod psiMethod = getPsiMethodFromContext(event);
         generateO2OMethod(psiMethod);
     }
-    
+
     /**
      * 启动写线程
      *
@@ -63,11 +65,41 @@ public class GenerateAction extends AnAction {
         if (paramentClass == null) {
             return;
         }
-        List<PsiField> paramentFields = new CollectionListModel<PsiField>(paramentClass.getFields()).getItems();
+
+        //把原来的getFields 替换成getAllFields ，支持父类的field
+        List<PsiField> paramentFields = new CollectionListModel<PsiField>(paramentClass.getAllFields()).getItems();
         String methodText = getMethodText(methodName, returnClassName, psiParameter, paramentFields);
         PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(psiMethod.getProject());
         PsiMethod toMethod = elementFactory.createMethodFromText(methodText, psiMethod);
         psiMethod.replace(toMethod);
+    }
+
+    /**
+     * 获取方法体
+     *
+     * @param returnClassName
+     * @param psiParameter
+     * @param paramentFields
+     * @return
+     */
+    private String getCodeBlock(String returnClassName, PsiParameter psiParameter, List<PsiField> paramentFields) {
+        String returnObjName = returnClassName.substring(0, 1).toLowerCase() + returnClassName.substring(1);
+        String parameterName = psiParameter.getName();
+        StringBuilder builder = new StringBuilder();
+        builder.append("if ( " + parameterName + "== null ){\n").append("return null;\n}")
+                .append(returnClassName + " " + returnObjName + "= new " + returnClassName + "();\n");
+        for (PsiField field : paramentFields) {
+            PsiModifierList modifierList = field.getModifierList();
+            if (modifierList == null || modifierList.hasModifierProperty(PsiModifier.STATIC) || modifierList
+                    .hasModifierProperty(PsiModifier.FINAL) || modifierList
+                        .hasModifierProperty(PsiModifier.SYNCHRONIZED)) {
+                continue;
+            }
+            builder.append(returnObjName + ".set" + getFirstUpperCase(field.getName()) + "(" + parameterName + ".get"
+                           + getFirstUpperCase(field.getName()) + "());\n");
+        }
+        builder.append("return " + returnObjName + ";\n");
+        return builder.toString();
     }
 
     /**
@@ -111,6 +143,21 @@ public class GenerateAction extends AnAction {
             return null;
         }
         return PsiTreeUtil.getParentOfType(elementAt, PsiMethod.class);
+    }
+
+    /**
+     * 获取代码块
+     *
+     * @param e
+     * @return
+     */
+    private PsiCodeBlock getPsiCodeBlock(AnActionEvent e) {
+        final PsiMethod psiMethod = getPsiMethodFromContext(e);
+        if (psiMethod == null) {
+            return null;
+        } else {
+            return PsiTreeUtil.getChildOfType(psiMethod, PsiCodeBlock.class);
+        }
     }
 
     private PsiElement getPsiElement(AnActionEvent e) {

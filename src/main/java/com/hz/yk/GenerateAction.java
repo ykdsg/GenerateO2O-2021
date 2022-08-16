@@ -57,7 +57,7 @@ public class GenerateAction extends AnAction {
         String returnClassName = returnType.getPresentableText();
         PsiParameter psiParameter = psiMethod.getParameterList().getParameters()[0];
         //带package的class名称
-        String parameterClassWithPackage = psiParameter.getType().getInternalCanonicalText();
+        String parameterClassWithPackage = psiParameter.getType().getCanonicalText(false);
         //为了解析字段，这里需要加载参数的class
         JavaPsiFacade facade = JavaPsiFacade.getInstance(psiMethod.getProject());
         PsiClass paramentClass = facade
